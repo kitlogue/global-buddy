@@ -192,7 +192,8 @@ function ChatContent() {
             if (isUser) {
               const nextMsg = arr[index + 1];
               const nextParsed = nextMsg?.sender === 'ai' ? parseAIMessage(nextMsg.text) : null;
-              const userTranslation = nextParsed?.userTranslation ?? '';
+              const hasKorean = /[\uAC00-\uD7A3]/.test(msg.text);
+              const userTranslation = hasKorean ? (nextParsed?.userTranslation ?? '') : '';
               const naturalness = nextParsed?.naturalness ?? [];
 
               return (
