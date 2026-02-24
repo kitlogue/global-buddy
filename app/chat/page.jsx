@@ -5,29 +5,30 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Send, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { getScenario, SCENARIOS } from '@/lib/scenarios';
 
-// AI 메시지를 네 파트로 분리:
-//   userTranslation — 사용자 한국어 입력의 영어 번역 (🇰🇷 → 🇺🇸)
-//   main            — Sarah의 실제 영어 응답
-//   translationText — Sarah 응답의 한국어 번역 (🇰🇷 "...")
-//   naturalness     — 사용자 영어 교정 블록 (💬 더 자연스럽게)
+// AI 메시지를 다섯 파트로 분리:
+//   userTranslation  — 사용자 한국어 입력의 영어 번역 (🇰🇷 → 🇺🇸)
+//   main             — Sarah의 실제 영어 응답
+//   translationText  — Sarah 응답의 한국어 번역 (🇰🇷 "...")
+//   grammarCorrection — 사용자 문법 교정 (✏️ 문법 교정)
+//   naturalness      — 사용자 영어 자연스러운 표현 (💬 더 자연스럽게)
 function parseAIMessage(text) {
   const lines = text.split('\n');
 
-  // 💬 블록 시작점을 먼저 찾아서 앞/뒤로 분리 — 이후 줄은 절대 mainLines에 포함되지 않음
+  // 💬 블록 시작점을 먼저 찾아서 앞/뒤로 분리
   const naturalnessStart = lines.findIndex((l) => l.trim().startsWith('💬'));
   const contentLines = naturalnessStart >= 0 ? lines.slice(0, naturalnessStart) : lines;
   const naturalnessLines = naturalnessStart >= 0 ? lines.slice(naturalnessStart) : [];
 
-  // 교정 대안 추출 (① ②)
+  // 자연스러운 표현 대안 추출 (① ②)
   const naturalness = naturalnessLines
     .filter((l) => l.trim().startsWith('①') || l.trim().startsWith('②'))
     .map((l) => l.trim().replace(/^[①②]\s*"?/, '').replace(/"$/, '').trim());
 
   // 본문 파싱
-  // 🇰🇷 → 🇺🇸 는 응답 첫 줄에만 허용 — AI가 자기 응답을 이 형식으로 잘못 출력해도 걸러냄
   const mainLines = [];
   let userTranslation = '';
   let translationText = '';
+  let grammarCorrection = '';
   let firstNonEmptyPassed = false;
 
   for (const line of contentLines) {
@@ -40,11 +41,14 @@ function parseAIMessage(text) {
     const isUserTranslation = isFirstLine && trimmed.startsWith('🇰🇷') && trimmed.includes('→');
     const isSarahTranslation = trimmed.startsWith('🇰🇷') && !trimmed.includes('→');
     const isExplanation = trimmed.startsWith('📝');
+    const isGrammarCorrection = trimmed.startsWith('✏️');
 
     if (isUserTranslation) {
       userTranslation = trimmed.replace(/^🇰🇷\s*→\s*🇺🇸\s*"?/, '').replace(/"$/, '').trim();
     } else if (isSarahTranslation) {
       translationText = trimmed.replace(/^🇰🇷\s*"?/, '').replace(/"$/, '').trim();
+    } else if (isGrammarCorrection) {
+      grammarCorrection = trimmed.replace(/^✏️\s*(문법\s*교정\s*:?\s*)?"?/, '').replace(/"$/, '').trim();
     } else if (!isExplanation) {
       mainLines.push(line);
     }
@@ -54,10 +58,10 @@ function parseAIMessage(text) {
 
   // 안전장치: AI가 응답을 🇰🇷 → 🇺🇸 에 잘못 넣어 main이 비면 userTranslation을 main으로 복구
   if (!main && userTranslation) {
-    return { main: userTranslation, userTranslation: '', translationText, naturalness, hasExtra: !!translationText };
+    return { main: userTranslation, userTranslation: '', translationText, grammarCorrection, naturalness, hasExtra: !!translationText };
   }
 
-  return { main, userTranslation, translationText, naturalness, hasExtra: !!translationText };
+  return { main, userTranslation, translationText, grammarCorrection, naturalness, hasExtra: !!translationText };
 }
 
 function ChatContent() {
@@ -194,6 +198,7 @@ function ChatContent() {
               const nextParsed = nextMsg?.sender === 'ai' ? parseAIMessage(nextMsg.text) : null;
               const hasKorean = /[\uAC00-\uD7A3]/.test(msg.text);
               const userTranslation = hasKorean ? (nextParsed?.userTranslation ?? '') : '';
+              const grammarCorrection = nextParsed?.grammarCorrection ?? '';
               const naturalness = nextParsed?.naturalness ?? [];
 
               return (
@@ -205,6 +210,12 @@ function ChatContent() {
                     <span className="text-[12px] text-gray-400 italic px-1">
                       {userTranslation}
                     </span>
+                  )}
+                  {grammarCorrection && (
+                    <div className="flex flex-col items-end gap-0.5 px-1">
+                      <span className="text-[11px] font-semibold text-red-400">✏️ 문법 교정</span>
+                      <span className="text-[12px] text-gray-500">"{grammarCorrection}"</span>
+                    </div>
                   )}
                   {naturalness.length > 0 && (
                     <div className="flex flex-col items-end gap-0.5 px-1">
