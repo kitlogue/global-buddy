@@ -211,7 +211,7 @@ function ChatContent() {
                       {userTranslation}
                     </span>
                   )}
-                  {grammarCorrection && (
+                  {grammarCorrection && !hasKorean && (
                     <div className="flex flex-col items-end gap-0.5 px-1">
                       <span className="text-[11px] font-semibold text-red-400">✏️ 문법 교정</span>
                       <span className="text-[12px] text-gray-500">"{grammarCorrection}"</span>
