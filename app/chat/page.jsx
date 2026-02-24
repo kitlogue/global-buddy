@@ -12,34 +12,33 @@ import { getScenario, SCENARIOS } from '@/lib/scenarios';
 //   naturalness     — 사용자 영어 교정 블록 (💬 더 자연스럽게)
 function parseAIMessage(text) {
   const lines = text.split('\n');
+
+  // 💬 블록 시작점을 먼저 찾아서 앞/뒤로 분리 — 이후 줄은 절대 mainLines에 포함되지 않음
+  const naturalnessStart = lines.findIndex((l) => l.trim().startsWith('💬'));
+  const contentLines = naturalnessStart >= 0 ? lines.slice(0, naturalnessStart) : lines;
+  const naturalnessLines = naturalnessStart >= 0 ? lines.slice(naturalnessStart) : [];
+
+  // 교정 대안 추출 (① ②)
+  const naturalness = naturalnessLines
+    .filter((l) => l.trim().startsWith('①') || l.trim().startsWith('②'))
+    .map((l) => l.trim().replace(/^[①②]\s*"?/, '').replace(/"$/, '').trim());
+
+  // 본문 파싱
   const mainLines = [];
   let userTranslation = '';
   let translationText = '';
-  const naturalnessLines = [];
-  let inNaturalness = false;
 
-  for (const line of lines) {
+  for (const line of contentLines) {
     const trimmed = line.trim();
     const isUserTranslation = trimmed.startsWith('🇰🇷') && trimmed.includes('→');
     const isSarahTranslation = trimmed.startsWith('🇰🇷') && !trimmed.includes('→');
     const isExplanation = trimmed.startsWith('📝');
-    const isNaturalnessHeader = trimmed.startsWith('💬');
-    const isNaturalnessOption = trimmed.startsWith('①') || trimmed.startsWith('②');
 
     if (isUserTranslation) {
       userTranslation = trimmed.replace(/^🇰🇷\s*→\s*🇺🇸\s*"?/, '').replace(/"$/, '').trim();
-      inNaturalness = false;
     } else if (isSarahTranslation) {
       translationText = trimmed.replace(/^🇰🇷\s*"?/, '').replace(/"$/, '').trim();
-      inNaturalness = false;
-    } else if (isExplanation) {
-      inNaturalness = false;
-    } else if (isNaturalnessHeader) {
-      inNaturalness = true;
-      naturalnessLines.push(trimmed);
-    } else if (inNaturalness && isNaturalnessOption) {
-      naturalnessLines.push(trimmed.replace(/^[①②]\s*"?/, '').replace(/"$/, '').trim());
-    } else if (!inNaturalness) {
+    } else if (!isExplanation) {
       mainLines.push(line);
     }
   }
@@ -48,7 +47,7 @@ function parseAIMessage(text) {
     main: mainLines.join('\n').trim(),
     userTranslation,
     translationText,
-    naturalness: naturalnessLines.length > 1 ? naturalnessLines.slice(1) : [],
+    naturalness,
     hasExtra: !!translationText,
   };
 }
