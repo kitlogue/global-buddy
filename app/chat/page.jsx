@@ -82,7 +82,10 @@ function ChatContent() {
     if (!scenario.openingTrigger || openingFetched.current) return;
     openingFetched.current = true;
 
-    const trigger = { id: 0, text: scenario.openingTrigger, sender: 'user', hidden: true };
+    const triggerText = typeof scenario.openingTrigger === 'function'
+      ? scenario.openingTrigger(scenario.openingTopics[Math.floor(Math.random() * scenario.openingTopics.length)])
+      : scenario.openingTrigger;
+    const trigger = { id: 0, text: triggerText, sender: 'user', hidden: true };
     setIsLoading(true);
 
     fetch('/api/chat', {
