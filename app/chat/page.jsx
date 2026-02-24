@@ -24,13 +24,20 @@ function parseAIMessage(text) {
     .map((l) => l.trim().replace(/^[①②]\s*"?/, '').replace(/"$/, '').trim());
 
   // 본문 파싱
+  // 🇰🇷 → 🇺🇸 는 응답 첫 줄에만 허용 — AI가 자기 응답을 이 형식으로 잘못 출력해도 걸러냄
   const mainLines = [];
   let userTranslation = '';
   let translationText = '';
+  let firstNonEmptyPassed = false;
 
   for (const line of contentLines) {
     const trimmed = line.trim();
-    const isUserTranslation = trimmed.startsWith('🇰🇷') && trimmed.includes('→');
+    if (!trimmed) { if (firstNonEmptyPassed) mainLines.push(line); continue; }
+
+    const isFirstLine = !firstNonEmptyPassed;
+    firstNonEmptyPassed = true;
+
+    const isUserTranslation = isFirstLine && trimmed.startsWith('🇰🇷') && trimmed.includes('→');
     const isSarahTranslation = trimmed.startsWith('🇰🇷') && !trimmed.includes('→');
     const isExplanation = trimmed.startsWith('📝');
 
@@ -43,13 +50,14 @@ function parseAIMessage(text) {
     }
   }
 
-  return {
-    main: mainLines.join('\n').trim(),
-    userTranslation,
-    translationText,
-    naturalness,
-    hasExtra: !!translationText,
-  };
+  const main = mainLines.join('\n').trim();
+
+  // 안전장치: AI가 응답을 🇰🇷 → 🇺🇸 에 잘못 넣어 main이 비면 userTranslation을 main으로 복구
+  if (!main && userTranslation) {
+    return { main: userTranslation, userTranslation: '', translationText, naturalness, hasExtra: !!translationText };
+  }
+
+  return { main, userTranslation, translationText, naturalness, hasExtra: !!translationText };
 }
 
 function ChatContent() {
