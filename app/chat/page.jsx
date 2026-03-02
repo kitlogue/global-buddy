@@ -77,6 +77,14 @@ function ChatContent() {
   const messagesEndRef = useRef(null);
   const openingFetched = useRef(false);
 
+  // 세션 시작 시각 (HHMMSS) — 로그 파일명에 사용
+  const sessionId = useRef(() => {
+    const now = new Date();
+    return [now.getHours(), now.getMinutes(), now.getSeconds()]
+      .map((n) => String(n).padStart(2, '0'))
+      .join('');
+  })();
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
@@ -95,7 +103,7 @@ function ChatContent() {
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [trigger], scenario: scenarioId }),
+      body: JSON.stringify({ messages: [trigger], scenario: scenarioId, sessionId: sessionId.current }),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -134,7 +142,7 @@ function ChatContent() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages, scenario: scenarioId }),
+        body: JSON.stringify({ messages: updatedMessages, scenario: scenarioId, sessionId: sessionId.current }),
       });
 
       const data = await response.json();
